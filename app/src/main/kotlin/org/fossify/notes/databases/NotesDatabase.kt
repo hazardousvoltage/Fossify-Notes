@@ -16,7 +16,7 @@ import org.fossify.notes.models.NoteType
 import org.fossify.notes.models.Widget
 import java.util.concurrent.Executors
 
-@Database(entities = [Note::class, Widget::class], version = 4)
+@Database(entities = [Note::class, Widget::class], version = 5)
 abstract class NotesDatabase : RoomDatabase() {
 
     abstract fun NotesDao(): NotesDao
@@ -42,6 +42,7 @@ abstract class NotesDatabase : RoomDatabase() {
                             .addMigrations(MIGRATION_1_2)
                             .addMigrations(MIGRATION_2_3)
                             .addMigrations(MIGRATION_3_4)
+                            .addMigrations(MIGRATION_4_5)
                             .build()
                         db!!.openHelper.setWriteAheadLoggingEnabled(true)
                     }
@@ -83,6 +84,18 @@ abstract class NotesDatabase : RoomDatabase() {
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE widgets ADD COLUMN widget_show_title INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add nullable geotag columns to notes table. Using no NOT NULL constraint
+                // keeps backward compatibility with existing rows.
+                database.apply {
+                    execSQL("ALTER TABLE notes ADD COLUMN latitude REAL")
+                    execSQL("ALTER TABLE notes ADD COLUMN longitude REAL")
+                    execSQL("ALTER TABLE notes ADD COLUMN captured_at INTEGER")
+                }
             }
         }
     }

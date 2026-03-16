@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.Menu
+import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.text.TextUtilsCompat
 import androidx.core.view.ViewCompat
@@ -75,6 +76,7 @@ class SettingsActivity : SimpleActivity() {
     }
 
     private val binding by viewBinding(ActivitySettingsBinding::inflate)
+    private val jsonFormat = Json { ignoreUnknownKeys = true }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,6 +113,8 @@ class SettingsActivity : SimpleActivity() {
         setupManageAutomaticBackups()
         setupAppPasswordProtection()
         setupNoteDeletionPasswordProtection()
+        setupLocationAccess()
+        setupGeotagByDefault()
         updateTextColors(binding.settingsNestedScrollview)
 
         arrayOf(
@@ -302,7 +306,7 @@ class SettingsActivity : SimpleActivity() {
 
     private fun getGravityOptionLabel(gravity: Int): String {
         val leftToRightDirection = TextUtilsCompat
-            .getLayoutDirectionFromLocale(Locale.getDefault()) == ViewCompat.LAYOUT_DIRECTION_LTR
+            .getLayoutDirectionFromLocale(Locale.getDefault()) == View.LAYOUT_DIRECTION_LTR
         val leftRightLabels = listOf(R.string.left, R.string.right)
         val startEndLabels = if (leftToRightDirection) {
             leftRightLabels
@@ -391,7 +395,7 @@ class SettingsActivity : SimpleActivity() {
             val jsonString = contentResolver.openInputStream(uri)!!.use { inputStream ->
                 inputStream.bufferedReader().readText()
             }
-            val objects = Json.decodeFromString<List<Note>>(jsonString)
+            val objects = jsonFormat.decodeFromString<List<Note>>(jsonString)
             if (objects.isEmpty()) {
                 toast(org.fossify.commons.R.string.no_entries_for_importing)
                 return
@@ -557,6 +561,39 @@ class SettingsActivity : SimpleActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun setupLocationAccess() {
+        binding.settingsLocationAccess.isChecked = config.locationAccess
+        binding.settingsLocationAccessHolder.setOnClickListener {
+            binding.settingsLocationAccess.toggle()
+            config.locationAccess = binding.settingsLocationAccess.isChecked
+        }
+    }
+
+    private fun setupGeotagByDefault() {
+        // Only allow geotag-by-default when location access is enabled
+        binding.settingsGeotagByDefault.isChecked = config.geotagNotesByDefault
+        binding.settingsGeotagByDefaultHolder.beVisibleIf(config.locationAccess)
+
+        binding.settingsLocationAccessHolder.setOnClickListener {
+            // keep original location toggle behavior
+            binding.settingsLocationAccess.toggle()
+            config.locationAccess = binding.settingsLocationAccess.isChecked
+
+            // when disabling location access, also disable and clear the geotag-by-default option
+            if (!config.locationAccess) {
+                config.geotagNotesByDefault = false
+                binding.settingsGeotagByDefault.isChecked = false
+            }
+
+            binding.settingsGeotagByDefaultHolder.beVisibleIf(config.locationAccess)
+        }
+
+        binding.settingsGeotagByDefaultHolder.setOnClickListener {
+            binding.settingsGeotagByDefault.toggle()
+            config.geotagNotesByDefault = binding.settingsGeotagByDefault.isChecked
         }
     }
 }

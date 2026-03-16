@@ -108,6 +108,36 @@
             </RelativeLayout>
 
             <RelativeLayout
+                android:id="@+id/settings_location_access_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_location_access"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/location_access" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/settings_geotag_by_default_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_geotag_by_default"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/geotag_notes_by_default" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
                 android:id="@+id/settings_language_holder"
                 style="@style/SettingsHolderTextViewStyle"
                 android:layout_width="match_parent"

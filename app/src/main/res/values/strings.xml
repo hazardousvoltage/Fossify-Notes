@@ -27,9 +27,20 @@
     <string name="show_content">Show content</string>
     <string name="locking_warning">WARNING: If you forget the notes\' password, you won\'t be able to recover it or access the notes\' content anymore.</string>
     <string name="new_text_note">New text note</string>
+    <string name="geo_text_note">Geo text note</string>
+    <string name="new_geo_text_note">New geo text note</string>
     <string name="new_checklist">New checklist</string>
     <string name="cannot_load_over_internet">The app cannot load files over the internet</string>
     <string name="allow_alarm_automatic_backups">To backup notes automatically, please grant the app permission to schedule exact alarms.</string>
+    <string name="location_access">Allow location access (opt-in)</string>
+    <string name="geotag_notes_by_default">Geotag notes by default when creating</string>
+    <string name="remove_geotag">Remove geotag</string>
+    <string name="geotag_removed">Geotag removed</string>
+    <string name="capture_geotag">Capture geotag</string>
+    <string name="open_geotag_in_maps">Open geotag in maps</string>
+    <string name="geotag_captured">Geotag captured</string>
+    <string name="geotag_capture_failed">Failed to capture location</string>
+    <string name="cannot_open_map_app">No maps app found</string>
 
     <!-- File notes -->
     <string name="open_file">Open file</string>

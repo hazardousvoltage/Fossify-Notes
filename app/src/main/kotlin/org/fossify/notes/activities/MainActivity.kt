@@ -116,9 +116,11 @@ import org.fossify.notes.fragments.TextFragment
 import org.fossify.notes.helpers.MIME_TEXT_PLAIN
 import org.fossify.notes.helpers.MyMovementMethod
 import org.fossify.notes.helpers.NEW_CHECKLIST
+import org.fossify.notes.helpers.NEW_GEO_TEXT_NOTE
 import org.fossify.notes.helpers.NEW_TEXT_NOTE
 import org.fossify.notes.helpers.NotesHelper
 import org.fossify.notes.helpers.OPEN_NOTE_ID
+import org.fossify.notes.helpers.SHORTCUT_NEW_GEO_TEXT_NOTE
 import org.fossify.notes.helpers.SHORTCUT_NEW_CHECKLIST
 import org.fossify.notes.helpers.SHORTCUT_NEW_TEXT_NOTE
 import org.fossify.notes.models.Note
@@ -159,8 +161,41 @@ class MainActivity : SimpleActivity() {
 
     private val binding by viewBinding(ActivityMainBinding::inflate)
 
+    // Permission launcher for foreground location requests. Registered in onCreate to avoid lifecycle issues.
+    private lateinit var locationPermissionLauncher: androidx.activity.result.ActivityResultLauncher<String>
+    private var pendingLocationCallback: ((android.location.Location?) -> Unit)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Register permission launcher early in lifecycle
+        locationPermissionLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+            val callback = pendingLocationCallback
+            pendingLocationCallback = null
+            if (granted) {
+                // Try to obtain last known location
+                try {
+                    val lm = getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                    val providers = lm.getProviders(true)
+                    var bestLocation: android.location.Location? = null
+                    for (provider in providers) {
+                        try {
+                            val l = lm.getLastKnownLocation(provider)
+                            if (l != null && (bestLocation == null || l.accuracy < bestLocation.accuracy)) {
+                                bestLocation = l
+                            }
+                        } catch (_: SecurityException) {
+                            bestLocation = null
+                            break
+                        }
+                    }
+                    callback?.invoke(bestLocation)
+                } catch (_: Exception) {
+                    callback?.invoke(null)
+                }
+            } else {
+                callback?.invoke(null)
+            }
+        }
         setContentView(binding.root)
         appLaunched(BuildConfig.APPLICATION_ID)
         setupOptionsMenu()
@@ -195,6 +230,43 @@ class MainActivity : SimpleActivity() {
 
         checkAppOnSDCard()
         setupSearchButtons()
+    }
+
+    /**
+     * Request a single foreground location and invoke [callback] with the last-known location or null.
+     * If permission is already granted the callback is invoked immediately; otherwise launcher requests permission
+     * and the callback is invoked when the user responds. The callback is invoked on the calling thread.
+     */
+    fun requestForegroundLocation(callback: (android.location.Location?) -> Unit) {
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            this,
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (granted) {
+            try {
+                val lm = getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                val providers = lm.getProviders(true)
+                var bestLocation: android.location.Location? = null
+                for (provider in providers) {
+                    try {
+                        val l = lm.getLastKnownLocation(provider)
+                        if (l != null && (bestLocation == null || l.accuracy < bestLocation.accuracy)) {
+                            bestLocation = l
+                        }
+                    } catch (_: SecurityException) {
+                        bestLocation = null
+                        break
+                    }
+                }
+                callback(bestLocation)
+            } catch (_: Exception) {
+                callback(null)
+            }
+        } else {
+            pendingLocationCallback = callback
+            locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+        }
     }
 
     override fun onResume() {
@@ -274,6 +346,9 @@ class MainActivity : SimpleActivity() {
                 mNotes.isNotEmpty() && (::mCurrentNote.isInitialized && !mCurrentNote.isLocked())
             findItem(R.id.unlock_note).isVisible =
                 mNotes.isNotEmpty() && (::mCurrentNote.isInitialized && mCurrentNote.isLocked())
+            findItem(R.id.remove_geotag).isVisible = ::mCurrentNote.isInitialized && (mCurrentNote.latitude != null && mCurrentNote.longitude != null)
+            findItem(R.id.open_geotag_in_maps).isVisible = ::mCurrentNote.isInitialized && (mCurrentNote.latitude != null && mCurrentNote.longitude != null)
+            findItem(R.id.capture_geotag).isVisible = ::mCurrentNote.isInitialized && (mCurrentNote.latitude == null || mCurrentNote.longitude == null)
             findItem(R.id.more_apps_from_us).isVisible =
                 !resources.getBoolean(org.fossify.commons.R.bool.hide_google_relations)
             findItem(R.id.delete_note).isVisible = !isDefaultEmptyNote || mNotes.size > 1
@@ -318,9 +393,65 @@ class MainActivity : SimpleActivity() {
                 R.id.remove_done_items -> fragment?.handleUnlocking { removeDoneItems() }
                 R.id.uncheck_all_items -> fragment?.handleUnlocking { uncheckAllItems() }
                 R.id.sort_checklist -> fragment?.handleUnlocking { displaySortChecklistDialog() }
+                R.id.capture_geotag -> fragment?.handleUnlocking { captureGeotag() }
+                R.id.open_geotag_in_maps -> fragment?.handleUnlocking { openGeotagInMaps() }
+                R.id.remove_geotag -> fragment?.handleUnlocking { removeGeotag() }
                 else -> return@setOnMenuItemClickListener false
             }
             return@setOnMenuItemClickListener true
+        }
+    }
+
+    private fun openGeotagInMaps() {
+        val latitude = mCurrentNote.latitude ?: return
+        val longitude = mCurrentNote.longitude ?: return
+
+        val geoUri = "geo:$latitude,$longitude?q=$latitude,$longitude".toUri()
+        val mapIntent = Intent(Intent.ACTION_VIEW, geoUri)
+
+        try {
+            startActivity(mapIntent)
+        } catch (_: ActivityNotFoundException) {
+            toast(R.string.cannot_open_map_app)
+        }
+    }
+
+    private fun removeGeotag() {
+        if (!::mCurrentNote.isInitialized) return
+
+        mCurrentNote.latitude = null
+        mCurrentNote.longitude = null
+        mCurrentNote.capturedAt = null
+
+        NotesHelper(this).insertOrUpdateNote(mCurrentNote) {
+            toast(R.string.geotag_removed)
+            // update in-memory list and UI
+            val idx = getNoteIndexWithId(mCurrentNote.id!!)
+            mNotes = mNotes.toMutableList().also { list -> list[idx] = mCurrentNote }
+            mAdapter?.notifyDataSetChanged()
+            refreshMenuItems()
+        }
+    }
+
+    private fun captureGeotag() {
+        if (!::mCurrentNote.isInitialized) return
+
+        requestForegroundLocation { location ->
+            if (location != null) {
+                mCurrentNote.latitude = location.latitude
+                mCurrentNote.longitude = location.longitude
+                mCurrentNote.capturedAt = System.currentTimeMillis()
+
+                NotesHelper(this).insertOrUpdateNote(mCurrentNote) {
+                    toast(R.string.geotag_captured)
+                    val idx = getNoteIndexWithId(mCurrentNote.id!!)
+                    mNotes = mNotes.toMutableList().also { list -> list[idx] = mCurrentNote }
+                    mAdapter?.notifyDataSetChanged()
+                    refreshMenuItems()
+                }
+            } else {
+                toast(R.string.geotag_capture_failed)
+            }
         }
     }
 
@@ -413,12 +544,14 @@ class MainActivity : SimpleActivity() {
     @SuppressLint("NewApi")
     private fun checkShortcuts() {
         val appIconColor = config.appIconColor
-        if (config.lastHandledShortcutColor != appIconColor) {
+        val geoShortcutExists = shortcutManager.dynamicShortcuts.any { it.id == SHORTCUT_NEW_GEO_TEXT_NOTE }
+        if (config.lastHandledShortcutColor != appIconColor || !geoShortcutExists) {
             val newTextNote = getNewTextNoteShortcut(appIconColor)
+            val newGeoTextNote = getNewGeoTextNoteShortcut(appIconColor)
             val newChecklist = getNewChecklistShortcut(appIconColor)
 
             try {
-                shortcutManager.dynamicShortcuts = listOf(newTextNote, newChecklist)
+                shortcutManager.dynamicShortcuts = listOf(newTextNote, newGeoTextNote, newChecklist)
                 config.lastHandledShortcutColor = appIconColor
             } catch (_: Exception) {
             }
@@ -441,6 +574,29 @@ class MainActivity : SimpleActivity() {
         intent.action = Intent.ACTION_VIEW
         intent.putExtra(NEW_TEXT_NOTE, true)
         return ShortcutInfo.Builder(this, SHORTCUT_NEW_TEXT_NOTE)
+            .setShortLabel(shortLabel)
+            .setLongLabel(longLabel)
+            .setIcon(Icon.createWithBitmap(bmp))
+            .setIntent(intent)
+            .build()
+    }
+
+    @SuppressLint("NewApi")
+    private fun getNewGeoTextNoteShortcut(appIconColor: Int): ShortcutInfo {
+        val shortLabel = getString(R.string.geo_text_note)
+        val longLabel = getString(R.string.new_geo_text_note)
+        val drawable = AppCompatResources.getDrawable(
+            this, R.drawable.shortcut_geo_note
+        )
+
+        (drawable as LayerDrawable).findDrawableByLayerId(R.id.shortcut_plus_background)
+            .applyColorFilter(appIconColor)
+        val bmp = drawable.convertToBitmap()
+
+        val intent = Intent(this, MainActivity::class.java)
+        intent.action = Intent.ACTION_VIEW
+        intent.putExtra(NEW_GEO_TEXT_NOTE, true)
+        return ShortcutInfo.Builder(this, SHORTCUT_NEW_GEO_TEXT_NOTE)
             .setShortLabel(shortLabel)
             .setLongLabel(longLabel)
             .setIcon(Icon.createWithBitmap(bmp))
@@ -484,18 +640,10 @@ class MainActivity : SimpleActivity() {
                     if (realPath != null && hasPermission(PERMISSION_READ_STORAGE)) {
                         val file = File(realPath)
                         handleUri(Uri.fromFile(file))
+                    } else if (intent.getBooleanExtra(NEW_GEO_TEXT_NOTE, false)) {
+                        createTextNoteFromShortcut(captureGeotag = config.locationAccess)
                     } else if (intent.getBooleanExtra(NEW_TEXT_NOTE, false)) {
-                        addNewNote(
-                            Note(
-                                id = null,
-                                title = getCurrentFormattedDateTime(),
-                                value = "",
-                                type = NoteType.TYPE_TEXT,
-                                path = "",
-                                protectionType = PROTECTION_NONE,
-                                protectionHash = ""
-                            )
-                        )
+                        createTextNoteFromShortcut(captureGeotag = false)
                     } else if (intent.getBooleanExtra(NEW_CHECKLIST, false)) {
                         addNewNote(
                             Note(
@@ -515,8 +663,35 @@ class MainActivity : SimpleActivity() {
                 intent.removeCategory(Intent.CATEGORY_DEFAULT)
                 intent.action = null
                 intent.removeExtra(NEW_CHECKLIST)
+                intent.removeExtra(NEW_GEO_TEXT_NOTE)
                 intent.removeExtra(NEW_TEXT_NOTE)
             }
+        }
+    }
+
+    private fun createTextNoteFromShortcut(captureGeotag: Boolean) {
+        val note = Note(
+            id = null,
+            title = getCurrentFormattedDateTime(),
+            value = "",
+            type = NoteType.TYPE_TEXT,
+            path = "",
+            protectionType = PROTECTION_NONE,
+            protectionHash = ""
+        )
+
+        if (!captureGeotag) {
+            addNewNote(note)
+            return
+        }
+
+        requestForegroundLocation { location ->
+            if (location != null) {
+                note.latitude = location.latitude
+                note.longitude = location.longitude
+                note.capturedAt = System.currentTimeMillis()
+            }
+            addNewNote(note)
         }
     }
 
@@ -1175,20 +1350,29 @@ class MainActivity : SimpleActivity() {
         title: String,
         content: String,
         showSuccessToasts: Boolean,
+        sourceNote: Note? = null,
         callback: ((success: Boolean) -> Unit)? = null,
     ) {
+        val noteForExport = sourceNote ?: if (::mCurrentNote.isInitialized) mCurrentNote else null
+        val footer = if (noteForExport?.latitude != null && noteForExport.longitude != null) {
+            "\n\n[geotag] lat=${noteForExport.latitude} lon=${noteForExport.longitude} captured_at=${noteForExport.capturedAt ?: ""}"
+        } else {
+            ""
+        }
+        val contentToWrite = content + footer
+
         if (path.startsWith("content://")) {
             exportNoteValueToUri(
                 uri = path.toUri(),
                 title = title,
-                content = content,
+                content = contentToWrite,
                 showSuccessToasts = showSuccessToasts,
                 callback = callback
             )
         } else {
             handlePermission(PERMISSION_WRITE_STORAGE) {
                 if (it) {
-                    exportNoteValueToFile(path, content, showSuccessToasts, callback)
+                    exportNoteValueToFile(path, contentToWrite, showSuccessToasts, callback)
                 }
             }
         }

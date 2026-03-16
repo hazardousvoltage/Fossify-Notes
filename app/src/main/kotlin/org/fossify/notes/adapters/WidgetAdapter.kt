@@ -125,10 +125,7 @@ class WidgetAdapter(val context: Context, val intent: Intent) : RemoteViewsServi
         val noteId = intent.getLongExtra(NOTE_ID, 0L)
         note = context.notesDB.getNoteWithId(noteId)
         if (note?.type == NoteType.TYPE_CHECKLIST) {
-            tasks = note!!.getNoteStoredValue(context)?.ifEmpty { "[]" }?.let { Json.decodeFromString(it) } ?: mutableListOf()
-
-            // checklist title can be null only because of the glitch in upgrade to 6.6.0, remove this check in the future
-            tasks = tasks.toMutableList() as ArrayList<Task>
+            tasks = note!!.getNoteStoredValue(context)?.ifEmpty { "[]" }?.let { Json { ignoreUnknownKeys = true }.decodeFromString<ArrayList<Task>>(it) } ?: arrayListOf()
             val sorting = context.config.getSorting(noteId)
             if (sorting and SORT_BY_CUSTOM == 0) {
                 Task.sorting = sorting

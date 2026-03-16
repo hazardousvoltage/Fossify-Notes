@@ -36,7 +36,17 @@ class NotesPagerAdapter(fm: FragmentManager, val notes: List<Note>, val activity
         return fragment
     }
 
-    override fun getPageTitle(position: Int) = notes[position].title
+    override fun getPageTitle(position: Int): CharSequence {
+        val note = notes[position]
+        val title = note.title
+
+        // Use a unicode symbol so it inherits tab text color automatically in all themes.
+        if (note.latitude != null && note.longitude != null) {
+            return "⌖ $title"
+        }
+
+        return title
+    }
 
     fun updateCurrentNoteData(position: Int, path: String, value: String) {
         (fragments[position])?.apply {

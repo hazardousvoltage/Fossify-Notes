@@ -79,6 +79,18 @@
         android:title="@string/export_as_file"
         app:showAsAction="never" />
     <item
+        android:id="@+id/capture_geotag"
+        android:title="@string/capture_geotag"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/open_geotag_in_maps"
+        android:title="@string/open_geotag_in_maps"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/remove_geotag"
+        android:title="@string/remove_geotag"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/print"
         android:title="@string/print"
         app:showAsAction="never" />

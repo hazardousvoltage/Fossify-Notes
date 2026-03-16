@@ -93,6 +93,14 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(ADD_NEW_CHECKLIST_ITEMS_TOP, false)
         set(addNewCheckListItemsTop) = prefs.edit().putBoolean(ADD_NEW_CHECKLIST_ITEMS_TOP, addNewCheckListItemsTop).apply()
 
+    var locationAccess: Boolean
+        get() = prefs.getBoolean(LOCATION_ACCESS, false)
+        set(enabled) = prefs.edit().putBoolean(LOCATION_ACCESS, enabled).apply()
+
+    var geotagNotesByDefault: Boolean
+        get() = prefs.getBoolean(GEOTAG_NOTES_BY_DEFAULT, false)
+        set(enabled) = prefs.edit().putBoolean(GEOTAG_NOTES_BY_DEFAULT, enabled).apply()
+
     fun getSorting(noteId: Long?): Int {
         return if (noteId == null) sorting else getFolderSorting(noteId.toString())
     }

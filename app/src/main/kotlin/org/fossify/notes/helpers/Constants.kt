@@ -15,8 +15,10 @@ const val CUSTOMIZED_WIDGET_SHOW_TITLE = "customized_widget_show_title"
 const val ALL_WIDGET_IDS = "all_widget_ids"
 const val SHORTCUT_NEW_TEXT_NOTE = "shortcut_new_text_note"
 const val SHORTCUT_NEW_CHECKLIST = "shortcut_new_checklist"
+const val SHORTCUT_NEW_GEO_TEXT_NOTE = "shortcut_new_geo_text_note"
 const val NEW_TEXT_NOTE = "new_text_note"
 const val NEW_CHECKLIST = "new_checklist"
+const val NEW_GEO_TEXT_NOTE = "new_geo_text_note"
 val DEFAULT_WIDGET_TEXT_COLOR = Color.parseColor("#FFF57C00")
 
 // shared preferences
@@ -40,6 +42,8 @@ const val MOVE_DONE_CHECKLIST_ITEMS = "move_undone_checklist_items"     // it ha
 const val FONT_SIZE_PERCENTAGE = "font_size_percentage"
 const val EXPORT_MIME_TYPE = "text/plain"
 const val ADD_NEW_CHECKLIST_ITEMS_TOP = "add_new_checklist_items_top"
+const val LOCATION_ACCESS = "location_access"
+const val GEOTAG_NOTES_BY_DEFAULT = "geotag_notes_by_default"
 
 // auto backups
 const val AUTOMATIC_BACKUP_REQUEST_CODE = 10001

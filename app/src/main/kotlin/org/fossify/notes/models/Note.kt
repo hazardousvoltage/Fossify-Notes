@@ -25,7 +25,10 @@ data class Note(
     @ColumnInfo(name = "type") var type: NoteType,
     @ColumnInfo(name = "path") var path: String,
     @ColumnInfo(name = "protection_type") var protectionType: Int,
-    @ColumnInfo(name = "protection_hash") var protectionHash: String
+    @ColumnInfo(name = "protection_hash") var protectionHash: String,
+    @ColumnInfo(name = "latitude") var latitude: Double? = null,
+    @ColumnInfo(name = "longitude") var longitude: Double? = null,
+    @ColumnInfo(name = "captured_at") var capturedAt: Long? = null
 ) {
 
     fun getNoteStoredValue(context: Context): String? {
